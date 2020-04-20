@@ -1,0 +1,178 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <limits.h>
+
+#define MAXWORD 1000     /* longest word that can be read by mgetword */
+
+/*
+ * tnode: Tree node from K&R2 page 140.  Words are initially read into
+ * the tree by getword.
+ */
+struct tnode
+{
+    char *word;
+    int count;
+    struct tnode *left;
+    struct tnode *right;
+};
+
+struct numwordnode
+{
+    int number;
+    struct words *wordslist;
+    struct numwordnode *left;
+    struct numwordnode *right;
+};
+
+struct words
+{
+    char *word;
+    struct words *nextword;
+};
+
+struct tnode *addtree(struct tnode *, char *);
+struct numwordnode *addnumtree(struct numwordnode *, int, char*);
+struct words *addwordtolist(struct words*, char *);
+void printwords(const struct words*, const int);
+
+struct numwordnode *traverse(const struct tnode *, struct numwordnode *);
+void treeprint(const struct numwordnode *);
+int mgetword(char *, int);
+
+int main(int argc, char *argv[])
+{
+    struct tnode *root;
+    struct numwordnode *numwordroot;
+
+    char word[MAXWORD];
+
+    /* get all the words */
+    root = NULL;
+    numwordroot = NULL;
+
+    while(mgetword(word, MAXWORD) != 'x')
+        if(isalpha(word[0]))
+            root = addtree(root, word);
+
+    numwordroot = traverse(root, numwordroot);
+
+    printf("Words and their frequencies:\n");
+
+    treeprint(numwordroot);
+
+    return 0;
+}
+
+struct tnode *talloc(void);
+struct numwordnode *numwordalloc(void);
+struct words *wordsalloc(void);
+char *mstrdup(char *);
+
+/* mgetword from Ex6.1 */
+
+#define IN 1
+#define OUT 0
+
+
+
+int mgetword(char *word, int lim)
+{
+    int c, d, getch(void), comment, string, directive;
+    void ungetch(int);
+    char *w = word;
+
+    comment = string = directive = OUT;
+
+    while (isspace(c = getch()))
+        ;
+
+    /* Check if inside a comment */
+
+    if (c == '/') {
+        if ((d = getch()) == '*') {
+            comment = IN;
+        } else {
+            comment = OUT;
+            ungetch(d);
+        }
+    }
+
+    /* Check if inside a quote */
+
+    if ( c == '\"') {
+        string = IN;
+    }
+
+    /* Check if inside a directive */
+
+    if (c == '#') {
+            directive = IN;
+    }
+
+    if ( c == '\\') {
+        c = getch(); /* ignore the \\ character */
+    }
+
+    if (comment == OUT && string == OUT && directive == OUT) {
+
+        if (c != EOF)
+            *w++ = c;
+
+        if (!isalnum(c) && c !='_' ) {
+            *w = '\0';
+            return c;
+        }
+
+        for ( ; --lim > 0; w++) {
+            *w = getch();
+            if (!isalnum(*w) && *w != '_') {
+                ungetch(*w);
+                break;
+            }
+        }
+        *w = '\0';
+        return word[0];
+    }
+    else if ( comment == IN) {
+        *w++ = c;
+        *w++ = d;
+
+        while ((*w++ = c = getch())) {
+            if ( c == '*' ) {
+                if ( (c = getch()) == '/' ) {
+                    *w++ = c;
+                    comment = OUT;
+                    break;
+                } else {
+                    ungetch(c);
+                }
+            }
+        }
+        *w = '\0';
+
+    }
+    else if ( string == IN) {
+        *w++ = c;
+        while ((*w++ = getch()) != '\"') {
+            if ( *w == '\\')  /* Take care of escaped quotes */
+                *w++ = getch();
+        }
+        string = OUT;
+        *w = '\0';
+    }
+    else if (directive == IN) {
+        *w++ = c;
+        while ((*w++ = getch()) != '\n') {
+            if ( c == '\\') { /* Take care of continuation line escape */
+                *w++ = getch();
+            }
+        }
+        directive = OUT;
+        *w = '\0';
+    }
+
+    return c;
+
+}
